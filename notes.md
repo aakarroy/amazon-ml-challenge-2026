@@ -8,6 +8,8 @@ Data-Preprocessing:
     - Standardizes common corporate and street abbreviations
     - Strips excess whitespace 
 make all changes in place to curated a preprocessed data set Split A and Split B.
+Data-Sampling:
+    - Took 20% of entire dataset for both split a and split b to reduce the size of the dataset and make it easier to work with.
 
 Tips: 
 - keep the data in parquet format for faster read/write operations. Use the same preprocessing steps for both splits to ensure consistency.
@@ -18,3 +20,4 @@ Approach:
     - Feature Engineering (The Input)
         For every pair generated in candidate_pairs.tsv, you will calculate numeric similarity scores. The EDA report explicitly highlights strong features: 3-Gram Jaccard on the name and Token Jaccard on the address. Your feature table for the model will look like this: name_jaro_winkler_score, name_3gram_jaccard, address_token_jaccard, exact_country_match (Binary 1 or 0)
     - Model Architecture: LightGBM, Binary Logloss, 
+    - Then test the model. 

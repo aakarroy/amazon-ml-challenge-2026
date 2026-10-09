@@ -2,6 +2,17 @@ import pandas as pd
 import numpy as np
 import lightgbm as lgb
 import os
+from tqdm.auto import tqdm
+
+# Custom callback to link LightGBM iterations to a tqdm progress bar
+def tqdm_callback(pbar):
+    def callback(env):
+        pbar.update(1)
+        # Display the validation logloss metric in the progress bar
+        if env.evaluation_result_list:
+            val_loss = env.evaluation_result_list[0][2]
+            pbar.set_postfix({'val_logloss': f"{val_loss:.4f}"})
+    return callback
 
 def train_and_predict(
     train_features_path: str,
@@ -14,7 +25,6 @@ def train_and_predict(
     train_df = pd.read_parquet(train_features_path)
     val_df = pd.read_parquet(val_features_path)
     
-    # Define the exact features used for training
     feature_cols = [
         'name_jaro_winkler_score',
         'name_3gram_jaccard',
@@ -23,69 +33,64 @@ def train_and_predict(
     ]
     target_col = 'is_match'
     
-    X_train = train_df[feature_cols]
-    y_train = train_df[target_col]
+    X_train, y_train = train_df[feature_cols], train_df[target_col]
     
-    X_val = val_df[feature_cols]
+    # We must have a target column in the validation set to track progress metrics
+    X_val, y_val = val_df[feature_cols], val_df[target_col]
     
     print("2. Training LightGBM Baseline Model...")
-    # Standard binary classifier using Binary Logloss
+    n_trees = 100
     model = lgb.LGBMClassifier(
-        n_estimators=100,
+        n_estimators=n_trees,
         learning_rate=0.05,
         max_depth=6,
         random_state=42,
         objective='binary',
-        class_weight='balanced' # Helps if true matches are heavily outnumbered by false candidates
+        class_weight='balanced' 
     )
     
-    model.fit(X_train, y_train)
-    print("   Training complete. Feature Importances:")
+    # Initialize the progress bar
+    with tqdm(total=n_trees, desc="Building Trees") as pbar:
+        model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)], # Required to trigger the callback
+            eval_metric='binary_logloss',
+            callbacks=[tqdm_callback(pbar)]
+        )
+        
+    print("\n   Training complete. Feature Importances:")
     for name, imp in zip(feature_cols, model.feature_importances_):
         print(f"   - {name}: {imp}")
 
     print(f"\n3. Predicting Probabilities & Applying Strict Threshold (tau > {threshold})...")
-    # predict_proba returns [P(class=0), P(class=1)]
     val_probs = model.predict_proba(X_val)[:, 1]
     
-    # Only declare a match if the model is highly confident (favoring Precision for F0.5)
     val_df['match_probability'] = val_probs
     val_df['is_predicted_match'] = (val_df['match_probability'] > threshold).astype(int)
-    
-    # Filter down to ONLY the pairs that crossed the threshold
     matched_pairs = val_df[val_df['is_predicted_match'] == 1]
     
-    print("\n4. Formatting matching_results.tsv...")
-    # Group the surviving candidates by Source 1 Entity ID
-    # This turns multiple S2/S3 matches into a single comma-separated string
+    print("4. Formatting matching_results.tsv...")
     grouped_matches = matched_pairs.groupby('source1_entity_id')['candidate_entity_id'].apply(
-        lambda x: ",".join(sorted(list(set(x)))) # Ensure no duplicates in the string
+        lambda x: ",".join(sorted(list(set(x)))) 
     ).reset_index(name='matched_entity_ids')
 
-    # IMPORTANT: The rules state EVERY Source 1 entity from the test/val set must be present.
-    # We must load the original Source 1 file to capture the Singletons (entities with 0 matches).
     original_val_s1 = pd.read_csv(val_s1_path, sep="\t", dtype=str)
     
-    # Create the master dataframe with all S1 IDs
     final_submission = pd.DataFrame({
-        'source1_entity_id': original_val_s1['entity_id'] # Use the actual S1 IDs from the source file
+        'source1_entity_id': original_val_s1['entity_id'] 
     })
     
-    # Merge the predicted matches onto the master list
     final_submission = final_submission.merge(
         grouped_matches, 
         on='source1_entity_id', 
         how='left'
     )
-    
-    # Fill NaN values with empty strings for Singletons
     final_submission['matched_entity_ids'] = final_submission['matched_entity_ids'].fillna("")
     
     print(f"5. Saving formatted results to {output_results_path}...")
     os.makedirs(os.path.dirname(output_results_path), exist_ok=True)
     final_submission.to_csv(output_results_path, sep="\t", index=False)
     
-    # Quick sanity check printouts
     num_total = len(final_submission)
     num_singletons = len(final_submission[final_submission['matched_entity_ids'] == ""])
     print(f"\n--- Validation Summary ---")
