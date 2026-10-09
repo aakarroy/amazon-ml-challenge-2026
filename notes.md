@@ -15,9 +15,16 @@ Tips:
 - keep the data in parquet format for faster read/write operations. Use the same preprocessing steps for both splits to ensure consistency.
 - 
 
-Approach: 
+Approach-1: 
     - Blocking Statergy: Pass 1: Exact Name Match | Pass 2: N-gram Jaccard > 0.4:
     - Feature Engineering (The Input)
         For every pair generated in candidate_pairs.tsv, you will calculate numeric similarity scores. The EDA report explicitly highlights strong features: 3-Gram Jaccard on the name and Token Jaccard on the address. Your feature table for the model will look like this: name_jaro_winkler_score, name_3gram_jaccard, address_token_jaccard, exact_country_match (Binary 1 or 0)
     - Model Architecture: LightGBM, Binary Logloss, 
-    - Then test the model. 
+    - Final Traning Logs: iteration,train_logloss,val_logloss : 100,0.06627411202578558,0.0529632864064672 
+    - Test Val Data on 0.7 threshold: MACRO F_0.5 SCORE: 0.77959
+    - Test Val Data on 0.75 threshold: MACRO F_0.5 SCORE: 0.78451
+    - Test Val Data on 0.8 threshold: MACRO F_0.5 SCORE: 0.78944
+    - Test Val Data on 0.85 threshold: MACRO F_0.5 SCORE: 0.79500
+    - Test Val Data on 0.9 threshold: MACRO F_0.5 SCORE: 0.80240
+    - Test Val Data on 0.95 threshold: MACRO F_0.5 SCORE: 0.81053
+    So, Model Performs best on 0.95 thershold now test on test data: MACRO F_0.5 SCORE: 0.80944

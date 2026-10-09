@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 
 def compute_s1_f05(gt_set: set, pred_set: set) -> float:
     """
@@ -69,8 +70,7 @@ def evaluate_predictions(gt_filepath: str, pred_filepath: str):
 
 # Example Execution
 if __name__ == "__main__":
-    # evaluate_predictions(
-    #     gt_filepath="dataset-split/split_a/val/train_ground_truth.tsv",
-    #     pred_filepath="dataset-split/split_a/val/matching_results.tsv"
-    # )
-    pass
+    evaluate_predictions(
+        gt_filepath=r"dataset-split-20-percent\split_a\test\test_ground_truth.tsv",
+        pred_filepath=r"approaches\approach-1\results-on-test\test_matching_results_0.95.tsv"
+    )
