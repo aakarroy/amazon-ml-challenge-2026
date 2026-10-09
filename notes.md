@@ -27,4 +27,4 @@ Approach-1:
     - Test Val Data on 0.85 threshold: MACRO F_0.5 SCORE: 0.79500
     - Test Val Data on 0.9 threshold: MACRO F_0.5 SCORE: 0.80240
     - Test Val Data on 0.95 threshold: MACRO F_0.5 SCORE: 0.81053
-    So, Model Performs best on 0.95 thershold now test on test data: MACRO F_0.5 SCORE: 0.80944
+    So, Model Performs best on 0.95 thershold now test on test data split-a: MACRO F_0.5 SCORE: 0.80944
